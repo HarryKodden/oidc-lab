@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+
+"""oidc-lab.py: Core functionality of the application.
+"""
+
+__author__      = "Harry Kodden"
+__copyright__   = "Copyright 2018, SURFnet"
+__version__     = "1.0"
+__maintainer__  = "Harry Kodden"
+__email__       = "harry.kodden@surfnet.nl"
+__status__      = "Development"
+
 import os
 import json
 import logging
@@ -40,8 +52,6 @@ app.config.update({
     'OIDC_SCOPES': ['openid', 'email', 'profile'],
     'OIDC_INTROSPECTION_AUTH_METHOD': 'client_secret_post'
 })
-
-#register_client(discover_OP_information(http://10.10.10.131:8092/), client_type='Native')
 
 PROVIDERS = {}
 
@@ -334,7 +344,9 @@ curl -X PUT \\
   -d '{ "base_url": "https://eduid.lab.surf.nl/", "registration": { "client_id": "<b>YOUR CLIENT_ID</b>", "client_secret": "<b>YOUR CLIENT_SECRET</b>" }  }'
 </pre>
 <br/>
-<b>NOTE:</b> Please make sure your have registered <b>%s</b> as a valid callback uri with your proovider !
+<b>NOTE:</b> Please make sure your have registered <b>%s</b> as a valid callback uri with your provider !
+<br/>
+(c)2018 Harry Kodden, <a href="https://github.com/HarryKodden/oidc-lab">Source on Github</a>
 """ % (scheme, HOST, scheme, HOST, REDIRECT_URL)
 
     if oidc.user_loggedin:
