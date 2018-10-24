@@ -325,11 +325,12 @@ def hello_world():
 
     help = """
 <hr><h1>Howto</h1>
-<br/><br/>You can manage provider details via RESTful API interface.<br/>
-<br/>
-<br/><b>Example 1. List current Providers</b><br/>
-<a href="/api/providers">List Providers</a>'
-<br/><b>Example 2. Add a provider that allows dynamic regfistration</b><br/>
+<br/>You can manage provider details via RESTful API interface.
+<br/><br/>
+<b>Example 1. List current Providers</b><br/>
+<a href="/api/providers">List Providers</a>
+<br/><br/>
+<b>Example 2. Add a provider that allows dynamic regfistration</b><br/>
 <br/>
 <pre>
 curl -X PUT \\
@@ -339,7 +340,8 @@ curl -X PUT \\
 </pre>
 <br/>
 Above provider will use 'dynamic client registration', off course this will only work if your provider allows you to do so.
-<br/><b>Example 3. Add a provider with client credentials</b><br/>
+<br/><br/>
+<b>Example 3. Add a provider with client credentials</b><br/>
 <br/>
 If you have client_id and client_secret from your provider, then specify as follows:
 <pre>
