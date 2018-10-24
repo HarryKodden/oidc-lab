@@ -324,9 +324,13 @@ def hello_world():
 """
 
     help = """
-    <hr><br/><br/>You can manage provider details via RESTful API interface.<br/>
-    '<a href="/api/providers">List Providers</a>'
-    <br/><br/>Add a provider via POST request, for example:
+<hr><h1>Howto</h1>
+<br/><br/>You can manage provider details via RESTful API interface.<br/>
+<br/>
+<b>Example 1. List current Providers<b><br/>
+<a href="/api/providers">List Providers</a>'
+<b>Example 2. Add a provider that allows dynamic regfistration<b><br/>
+<br/>
 <pre>
 curl -X PUT \\
   %s://%s/api/provider/test \\
@@ -335,6 +339,7 @@ curl -X PUT \\
 </pre>
 <br/>
 Above provider will use 'dynamic client registration', off course this will only work if your provider allows you to do so.
+<b>Example 3. Add a provider with client credentials<b><br/>
 <br/>
 If you have client_id and client_secret from your provider, then specify as follows:
 <pre>
@@ -346,6 +351,7 @@ curl -X PUT \\
 <br/>
 <b>NOTE:</b> Please make sure your have registered <b>%s</b> as a valid callback uri with your provider !
 <br/>
+<hr/>
 (c)2018 Harry Kodden, <a href="https://github.com/HarryKodden/oidc-lab">Source on Github</a>
 """ % (scheme, HOST, scheme, HOST, REDIRECT_URL)
 
