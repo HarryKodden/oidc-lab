@@ -30,12 +30,14 @@ PORT = 8000
 HOST = os.environ.get("HOST", "localhost:%d"% (PORT))
 
 if HOST.startswith("localhost"):
-   scheme = "http"
+   SCHEME = "http"
 else:
-   scheme = "https"
+   SCHEME = "https"
 
-REQUESTED_SCOPES = "openid"
-REDIRECT_URL = "https://%s/oidc_callback" % (HOST)
+REQUESTED_SCOPES = ['openid', 'email', 'profile']
+
+CALLBACK = "/oidc_callback"
+REDIRECT_URL = "{}://{}{}".format(SCHEME, HOST, CALLBACK)
 
 app = Flask(__name__)
 
@@ -43,15 +45,81 @@ app.config.update({
     'SECRET_KEY': 'SomethingNotEntirelySecret',
     'TESTING': True,
     'DEBUG': True,
-    "PREFERRED_URL_SCHEME": scheme,
+    "PREFERRED_URL_SCHEME": SCHEME,
     'OIDC_CLIENT_SECRETS': None,
     'OIDC_ID_TOKEN_COOKIE_SECURE': False,
     'OIDC_REQUIRE_VERIFIED_EMAIL': False,
     'OIDC_OPENID_REALM': REDIRECT_URL,
     'OIDC_USER_INFO_ENABLED': True,
-    'OIDC_SCOPES': ['openid', 'email', 'profile'],
+    'OIDC_SCOPES': REQUESTED_SCOPES,
     'OIDC_INTROSPECTION_AUTH_METHOD': 'client_secret_post'
 })
+
+ALLOWED_REGISTRATTION_ATTRIBUTES = ['client_id', 'client_secret']
+
+class _Registration(dict):
+    def __init__(self, data):
+        logger.debug('New Registration: {}'.format(data))
+
+        assert 'client_id' in data, "'client_id' is missing in registration"
+        assert 'client_secret' in data, "'client_secret' is missing in registration"
+
+        for i in data.keys():
+            self[i] = data[i]
+
+    def __getitem__(self, key):
+        if key == 'client_secret':
+            return '*******'
+        elif key == '*client_secret*':
+            return super().__getitem__('client_secret')
+        else:
+            return super().__getitem__(key)
+
+    def get(self,key,default=None):
+        try:
+            return self[key]
+        except:
+            return dafault
+
+    def __setitem__(self, key, value):
+        logger.debug('- [REGISTRATION] {} := {}'.format(key, value))
+
+        assert key in ALLOWED_REGISTRATTION_ATTRIBUTES, \
+            "attribute {} not valid, only {} allowed". format(key, ALLOWED_REGISTRATTION_ATTRIBUTES)
+
+        super().__setitem__(key, value)
+
+ALLOWED_PROVIDER_ATTRIBUTES = ['base_url', 'description', 'client_name', 'registration']
+
+class _Provider(dict):
+
+    def __init__(self, data):
+        logger.debug('New Provider: {}'.format(data))
+
+        assert 'base_url' in data, "'base_url' missing"
+
+        for i in data.keys():
+            self[i] = data[i]
+
+    def get(self,key,default=None):
+        try:
+            return self[key]
+        except:
+            return dafault
+
+    def __getitem__(self, key):
+        return super().__getitem__(key)
+
+    def __setitem__(self, key, value):
+        logger.debug('- [PROVIDER] {} := {}'.format(key, value))
+
+        assert key in ALLOWED_PROVIDER_ATTRIBUTES, \
+            "attribute {} not valid, only {} allowed". format(key, ALLOWED_PROVIDER_ATTRIBUTES)
+
+        if key == 'registration':
+            super().__setitem__(key, _Registration(value))
+        else:
+            super().__setitem__(key, value)
 
 PROVIDERS = {}
 
@@ -59,10 +127,29 @@ def abort_if_provider_doesnt_exist(name):
     if name not in PROVIDERS:
         abort(404, message="Provider {} doesn't exist".format(name))
 
+def get_dict(value):
+
+    if isinstance(value, dict):
+        result = {}
+
+        for i in value.keys():
+            result[i] = get_dict(value[i])
+
+        return result
+    elif isinstance(value, list):
+        result = []
+
+        for i in value.keys():
+            result.append(get_dict(value[i]))
+
+        return result
+    else:
+        return value
+
 class Provider(Resource):
     def get(self, name):
         abort_if_provider_doesnt_exist(name)
-        return PROVIDERS[name]
+        return get_dict(PROVIDERS[name])
 
     def delete(self, name):
         abort_if_provider_doesnt_exist(name)
@@ -70,20 +157,25 @@ class Provider(Resource):
         return '', 204
 
     def put(self, name):
+        logger.debug("PUT Provider: {}...".format(name))
+
         try:
-            p = request.get_json()
-            assert p != None, "missing provider definition"
-            assert 'base_url' in p, "'base_url' missing"
+            data = request.get_json()
+
+            assert data != None, "missing provider definition"
+
+            PROVIDERS[name] = _Provider(data)
+
         except Exception as e:
+
             logger.debug("Error: {}".format(str(e)))
             abort(404, message="{}".format(str(e)))
 
-        PROVIDERS[name] = request.get_json()
-        return PROVIDERS[name], 201
+        return self.get(name), 201
 
 class Providers(Resource):
     def get(self):
-        return PROVIDERS
+        return get_dict(PROVIDERS)
 
 api = Api(app)
 api.add_resource(Provider, '/api/provider/<name>')
@@ -116,7 +208,7 @@ class MyOpenIDConnect(OpenIDConnect):
         :type app: Flask
         """
         # Set some default configuration options
-        app.config.setdefault('OIDC_SCOPES', ['openid', 'email'])
+        app.config.setdefault('OIDC_SCOPES', REQUESTED_SCOPES)
         app.config.setdefault('OIDC_GOOGLE_APPS_DOMAIN', None)
         app.config.setdefault('OIDC_ID_TOKEN_COOKIE_NAME', 'oidc_id_token')
         app.config.setdefault('OIDC_ID_TOKEN_COOKIE_PATH', '/')
@@ -128,7 +220,7 @@ class MyOpenIDConnect(OpenIDConnect):
         app.config.setdefault('OIDC_REQUIRE_VERIFIED_EMAIL', False)
         app.config.setdefault('OIDC_OPENID_REALM', None)
         app.config.setdefault('OIDC_USER_INFO_ENABLED', True)
-        app.config.setdefault('OIDC_CALLBACK_ROUTE', '/oidc_callback')
+        app.config.setdefault('OIDC_CALLBACK_ROUTE', CALLBACK)
         app.config.setdefault('OVERWRITE_REDIRECT_URI', REDIRECT_URL)
         # Configuration for resource servers
         app.config.setdefault('OIDC_RESOURCE_SERVER_ONLY', False)
@@ -169,8 +261,8 @@ class MyOpenIDConnect(OpenIDConnect):
         """
         Do setup for a specific provider
 
-        :param app: The application to initialize.
-        :type app: Flask
+        :param provider: The provider to initialize.
+        :type provider: Dictionary with at lease 'base_url' item
         """
 
         secrets = self.load_secrets(provider)
@@ -270,7 +362,7 @@ class MyOpenIDConnect(OpenIDConnect):
             return {
                 'web' : {
                     'client_id': registration['client_id'],
-                    'client_secret': registration['client_secret'],
+                    'client_secret': registration['*client_secret*'],
                     'auth_uri': provider_info['authorization_endpoint'],
                     'token_uri': provider_info['token_endpoint'],
                     'userinfo_uri': provider_info['userinfo_endpoint'],
@@ -355,7 +447,7 @@ curl -X PUT \\
 <br/>
 <hr/>
 (c)2018 Harry Kodden, <a href="https://github.com/HarryKodden/oidc-lab">Source on Github</a>
-""" % (scheme, HOST, scheme, HOST, REDIRECT_URL)
+""" % (SCHEME, HOST, SCHEME, HOST, REDIRECT_URL)
 
     if oidc.user_loggedin:
         return (
