@@ -79,7 +79,7 @@ class _Registration(dict):
         try:
             return self[key]
         except:
-            return dafault
+            return default
 
     def __setitem__(self, key, value):
         logger.debug('- [REGISTRATION] {} := {}'.format(key, value))
@@ -105,7 +105,7 @@ class _Provider(dict):
         try:
             return self[key]
         except:
-            return dafault
+            return default
 
     def __getitem__(self, key):
         return super().__getitem__(key)
@@ -276,6 +276,7 @@ class MyOpenIDConnect(OpenIDConnect):
             current_app.config['OIDC_CLIENT_SECRETS'],
             scope=current_app.config['OIDC_SCOPES'],
             cache=secrets_cache)
+
         assert isinstance(self.flow, OAuth2WebServerFlow)
 
         current_app.config['OIDC_VALID_ISSUERS'] = self.client_secrets.get('issuer')
