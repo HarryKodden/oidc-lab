@@ -198,7 +198,7 @@ class MyOpenIDConnect(OpenIDConnect):
             self.init_app(app)
 
         if provider:
-            self.init_provider(app, provider)
+            self.init_provider(provider)
 
     def init_app(self, app):
         """
