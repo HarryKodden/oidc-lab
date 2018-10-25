@@ -362,8 +362,8 @@ class MyOpenIDConnect(OpenIDConnect):
         try:
             return {
                 'web' : {
-                    'client_id': registration['client_id'],
-                    'client_secret': registration['*client_secret*'],
+                    'client_id': registration.get('client_id'),
+                    'client_secret': registration.get('*client_secret*', registration.get('client_secret', None)),
                     'auth_uri': provider_info['authorization_endpoint'],
                     'token_uri': provider_info['token_endpoint'],
                     'userinfo_uri': provider_info['userinfo_endpoint'],
