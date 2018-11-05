@@ -521,6 +521,8 @@ def hello_me():
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
+    global oidc
+
     if request.method == 'POST':
         # Evaluate BackChannel logout
         # Refer: https://openid.net/specs/openid-connect-X-1_0.html
@@ -562,7 +564,9 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
 - Cache-Control: no-cache, no-store
 - Pragma: no-cache
 """
-        oidc.logout()
+
+        if oidc:
+            oidc.logout()
         oidc = None
 
         r = make_response('', 200)
@@ -570,7 +574,8 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
         r.headers['Pragma'] = 'no-cache'
         return r
 
-    oidc.logout()
+    if oidc:
+        oidc.logout()
     oidc = None
 
     return 'Hi, you have been logged out!<br/><br/><a href="/">Return</a>'
