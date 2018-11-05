@@ -525,7 +525,7 @@ def logout():
 
     if request.method == 'POST':
         # Evaluate BackChannel logout
-        # Refer: https://openid.net/specs/openid-connect-X-1_0.html
+        # Refer: https://openid.net/specs/openid-connect-backchannel-1_0.html
         # chapter 2.5 Back-Channel Logout Request
 
         logger.debug("Backchannel logout request")
@@ -540,17 +540,18 @@ def logout():
     Verify that the Logout Token does not contain a nonce Claim.
     Optionally verify that another Logout Token with the same jti value has not been recently received.
 """
-        logout_token = request.get_data() # .decode('utf-8', 'ignore')
+
+        logger.debug("Data received: {}".format(request.get_data().decode('utf-8')))
 
         try:
-            v = logout_token.decode()
+            v = request.form.get('logout_token', None)
             logger.debug("Logout Token 1: {}".format(v))
             v = jwt.decode(v, verify=False)
             logger.debug("Logout Token 2: {}".format(v))
             v = json.dumps(v, indent=4, sort_keys=True)
             logger.debug("Logout Token 3: {}".format(v))
         except Exception as e:
-            logger.debug("Logout Token: {} Error: {}".format(logout_token, str(e)))
+            logger.debug("Logout Error: {}".format(str(e)))
 
         # Make response
         """
