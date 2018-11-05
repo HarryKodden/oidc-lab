@@ -540,7 +540,7 @@ def logout():
     Verify that the Logout Token does not contain a nonce Claim.
     Optionally verify that another Logout Token with the same jti value has not been recently received.
 """
-        logout_token = request.get_data().decode('utf-8', 'ignore')
+        logout_token = request.get_data() # .decode('utf-8', 'ignore')
 
         try:
             v = logout_token
@@ -565,19 +565,15 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
 - Pragma: no-cache
 """
 
-        if oidc:
-            oidc.logout()
-        oidc = None
-
+        oidc.logout()
+        
         r = make_response('', 200)
         r.headers['Cache-Control'] = 'no-cache, no-store'
         r.headers['Pragma'] = 'no-cache'
         return r
-
-    if oidc:
-        oidc.logout()
-    oidc = None
-
+    
+    oidc.logout()
+    
     return 'Hi, you have been logged out!<br/><br/><a href="/">Return</a>'
 
 if __name__ == "__main__":
