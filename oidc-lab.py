@@ -19,6 +19,7 @@ import requests
 import jwt
 
 from flask import Flask, g, redirect, current_app, jsonify, request, render_template
+from flask.helpers import make_response
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
 from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow
@@ -540,7 +541,7 @@ def logout():
         logout_token = request.get_data()
 
         try:
-            v = logout_token
+            v = logout_token.decode()
             logger.debug("Logout Token 1: {}".format(v))
             v = jwt.decode(v, verify=False)
             logger.debug("Logout Token 2: {}".format(v))
