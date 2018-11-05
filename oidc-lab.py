@@ -16,8 +16,9 @@ import logging
 import urllib
 import functools
 import requests
+import jwt
 
-from flask import Flask, g, redirect, current_app, jsonify, request
+from flask import Flask, g, redirect, current_app, jsonify, request, render_template
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
 from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow
@@ -42,6 +43,9 @@ REDIRECT_URL = "{}://{}{}".format(SCHEME, HOST, CALLBACK)
 app = Flask(__name__)
 
 app.config.update({
+    'server' : 'https://eduid.lab.surf.nl/auth/',
+    'realm' : 'eduID',
+    'client_id': 'portal',
     'SECRET_KEY': 'SomethingNotEntirelySecret',
     'TESTING': True,
     'DEBUG': True,
@@ -188,8 +192,6 @@ class MyOpenIDConnect(OpenIDConnect):
     def __init__(self, app=None, credentials_store=None, http=None, time=None,
                  urandom=None, provider=None):
 
-        self.last_token = None
-
         super().__init__(credentials_store, http, time, urandom)
 
         self.client_secrets = None
@@ -198,7 +200,7 @@ class MyOpenIDConnect(OpenIDConnect):
             self.init_app(app)
 
         if provider:
-            self.init_provider(provider)
+            self.init_provider(app, provider)
 
     def init_app(self, app):
         """
@@ -285,7 +287,6 @@ class MyOpenIDConnect(OpenIDConnect):
         logger.debug("logging out...")
 
         super().logout()
-        self.last_token = None
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.logout()
@@ -300,9 +301,14 @@ class MyOpenIDConnect(OpenIDConnect):
         if 'aud' in id_token and isinstance(id_token['aud'], list) and len(id_token['aud']) == 1:
             id_token['aud'] = id_token['aud'][0]
 
-        self.last_token = id_token
-
         return super()._is_id_token_valid(id_token)
+
+    def token(self):
+        try:
+            return self.credentials_store[g.oidc_id_token['sub']]
+        except KeyError:
+            logger.debug("No Token !", exc_info=True)
+            return None
 
     def details(self):
         return self._retrieve_userinfo()
@@ -360,6 +366,13 @@ class MyOpenIDConnect(OpenIDConnect):
                 raise Exception("Can not make client registration: {}".format(str(e)))
 
         try:
+            try:
+               jwks_keys = json.load(
+                 urllib.request.urlopen(provider_info['jwks_uri'])
+               )
+            except:
+               jwks_keys = None
+
             return {
                 'web' : {
                     'client_id': registration.get('client_id'),
@@ -367,6 +380,7 @@ class MyOpenIDConnect(OpenIDConnect):
                     'auth_uri': provider_info['authorization_endpoint'],
                     'token_uri': provider_info['token_endpoint'],
                     'userinfo_uri': provider_info['userinfo_endpoint'],
+                    'jwks_keys': jwks_keys,
                     'redirect_uris': REDIRECT_URL,
                     'issuer': provider_info['issuer'],
                 }
@@ -460,6 +474,11 @@ curl -X PUT \\
         return '{}{}{}'.format(html,script,help)
 
 
+@app.route('/uma')
+@oidc.require_login
+def uma():
+    return render_template('uma.html', error="", client=oidc.client_secrets, token=json.loads(oidc.token()))
+
 @app.route('/private')
 @oidc.require_login
 def hello_me():
@@ -467,11 +486,21 @@ def hello_me():
     try:
         token = '<h1>Token Details:</h1><br/><table border="1">'
         token += '<tr><th>Attribute</th><th>Value</th></tr>'
-        for f in oidc.last_token.keys():
-            token += '<tr><td>{}</td><td>{}</td></tr>'.format(f, oidc.last_token[f])
+
+        t = json.loads(oidc.token())['token_response']
+        logger.debug("TOKEN: {}".format(t))
+
+        for k,v in t.items():
+            try:
+              v = jwt.decode(v, verify=False)
+              v = json.dumps(v, indent=4, sort_keys=True)
+            except:
+              pass
+
+            token += '<tr><td>{}</td><td><pre>{}</pre></td></tr>'.format(k, v)
         token += '</table>'
-    except:
-        token = 'No token details available...'
+    except Exception as e:
+        token = 'No token details available...{}'.format(str(e))
 
     try:
         info = oidc.details()
