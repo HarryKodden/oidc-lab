@@ -544,14 +544,34 @@ def logout():
         logger.debug("Data received: {}".format(request.get_data().decode('utf-8')))
 
         try:
-            v = request.form.get('logout_token', None)
-            logger.debug("Logout Token 1: {}".format(v))
-            v = jwt.decode(v, verify=False)
-            logger.debug("Logout Token 2: {}".format(v))
-            v = json.dumps(v, indent=4, sort_keys=True)
-            logger.debug("Logout Token 3: {}".format(v))
+            logout_token = request.form.get('logout_token', None)
+
+            if not logout_token:
+                raise Exception("No logout_token")
+    
+            payload = jwt.decode(logout_token, verify=False)
+
+            logger.debug("Logout Token payload: {}".format(json.dumps(payload, indent=4, sort_keys=True)))
+            
+            if "sub" not in paylaod and "sid" not in payload:
+                raise Exception("Missing sub and/or sid claims")
+
+            if "events" not in payload:
+                raise Exception("Missing events claim")
+
+            if "http://schemas.openid.net/event/backchannel-logout" not in payload["events"]:
+                raise Exception("Events claim missing required member")
+
+            if "nonce" in payload:
+                raise Exception("Logout token should not contain nonce claim")
+
         except Exception as e:
             logger.debug("Logout Error: {}".format(str(e)))
+
+            r = make_response(str(e), 400)
+            r.headers['Cache-Control'] = 'no-cache, no-store'
+            r.headers['Pragma'] = 'no-cache'
+            return r
 
         # Make response
         """
