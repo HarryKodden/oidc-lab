@@ -538,7 +538,7 @@ def logout():
     Verify that the Logout Token does not contain a nonce Claim.
     Optionally verify that another Logout Token with the same jti value has not been recently received.
 """
-        logout_token = request.get_data().decode('utf-8')
+        logout_token = request.get_data().decode('utf-8', 'ignore')
 
         try:
             v = logout_token
