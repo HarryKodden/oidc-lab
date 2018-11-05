@@ -537,13 +537,15 @@ def logout():
     Verify that the Logout Token does not contain a nonce Claim.
     Optionally verify that another Logout Token with the same jti value has not been recently received.
 """
-        logout_token = request.get_data().decode()
+        logout_token = request.get_data()
 
         try:
             v = logout_token
+            logger.debug("Logout Token 1: {}".format(v))
             v = jwt.decode(v, verify=False)
+            logger.debug("Logout Token 2: {}".format(v))
             v = json.dumps(v, indent=4, sort_keys=True)
-            logger.debug("Logout Token: {}".format(v))
+            logger.debug("Logout Token 3: {}".format(v))
         except:
             logger.debug("Logout Token: {}".format(logout_token))
 
