@@ -553,7 +553,7 @@ def logout():
 
             logger.debug("Logout Token payload: {}".format(json.dumps(payload, indent=4, sort_keys=True)))
             
-            if "sub" not in paylaod and "sid" not in payload:
+            if "sub" not in payload and "sid" not in payload:
                 raise Exception("Missing sub and/or sid claims")
 
             if "events" not in payload:
