@@ -543,7 +543,7 @@ def logout():
         logout_token = request.get_data() # .decode('utf-8', 'ignore')
 
         try:
-            v = logout_token
+            v = logout_token.decode()
             logger.debug("Logout Token 1: {}".format(v))
             v = jwt.decode(v, verify=False)
             logger.debug("Logout Token 2: {}".format(v))
