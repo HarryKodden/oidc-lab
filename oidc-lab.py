@@ -498,7 +498,7 @@ def hello_me():
                 v = json.dumps(v, indent=4, sort_keys=True)
             except:
                 pass
-                
+
             token += '<tr><td>{}</td><td><pre>{}</pre></td></tr>'.format(k, v)
         token += '</table>'
     except Exception as e:
@@ -539,7 +539,13 @@ def logout():
 """
         logout_token = request.get_data()
 
-        logger.debug("Logout Token: {}".format(logout_token))        
+        try:
+            v = logout_token
+            v = jwt.decode(v, verify=False)
+            v = json.dumps(v, indent=4, sort_keys=True)
+            logger.debug("Logout Token: {}".format(v))
+        except:
+            logger.debug("Logout Token: {}".format(logout_token.decode()))
 
         # Make response
         """
@@ -553,6 +559,8 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
 - Cache-Control: no-cache, no-store
 - Pragma: no-cache
 """
+        oidc.logout()
+
         r = make_response('', 200)
         r.headers['Cache-Control'] = 'no-cache, no-store'
         r.headers['Pragma'] = 'no-cache'
