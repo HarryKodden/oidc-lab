@@ -547,8 +547,8 @@ def logout():
             logger.debug("Logout Token 2: {}".format(v))
             v = json.dumps(v, indent=4, sort_keys=True)
             logger.debug("Logout Token 3: {}".format(v))
-        except:
-            logger.debug("Logout Token: {}".format(logout_token))
+        except Exception as e:
+            logger.debug("Logout Token: {} Error: {}".format(logout_token, str(e)))
 
         # Make response
         """
@@ -563,6 +563,7 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
 - Pragma: no-cache
 """
         oidc.logout()
+        oidc = None
 
         r = make_response('', 200)
         r.headers['Cache-Control'] = 'no-cache, no-store'
@@ -570,6 +571,8 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
         return r
 
     oidc.logout()
+    oidc = None
+
     return 'Hi, you have been logged out!<br/><br/><a href="/">Return</a>'
 
 if __name__ == "__main__":
