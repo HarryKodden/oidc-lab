@@ -1,0 +1,10 @@
+Flask
+requests
+requests-oauthlib
+gunicorn
+future
+flask-cache
+flask-login
+flask-oidc
+flask-restful
+pyjwt
