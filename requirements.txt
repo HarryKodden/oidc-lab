@@ -2,6 +2,7 @@ Flask
 requests
 requests-oauthlib
 gunicorn
+gevent
 future
 flask-cache
 flask-login

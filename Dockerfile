@@ -9,6 +9,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 ADD oidc-lab.py /usr/local/bin/
+#ADD sse.py /usr/local/bin/
 
 EXPOSE 8000
 

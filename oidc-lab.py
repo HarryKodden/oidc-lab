@@ -18,11 +18,15 @@ import functools
 import requests
 import jwt
 
-from flask import Flask, g, redirect, current_app, jsonify, request, render_template
+from flask import Flask, g, redirect, current_app, jsonify, request, render_template, Response
 from flask.helpers import make_response
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
 from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow
+
+import gevent
+from gevent.pywsgi import WSGIServer
+from gevent.queue import Queue
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -482,9 +486,91 @@ curl -X PUT \\
 def uma():
     return render_template('uma.html', error="", client=oidc.client_secrets, token=json.loads(oidc.token()))
 
+subscriptions = {}
+
+class ServerSentEvent(object):
+
+    def __init__(self, data):
+        self.data = data
+        self.event = None
+        self.id = None
+        self.desc_map = {
+            self.data : "data",
+            self.event : "event",
+            self.id : "id"
+        }
+
+    def encode(self):
+        if not self.data:
+            return ""
+
+        lines = ["%s: %s" % (v, k) 
+                 for k, v in self.desc_map.items() if k]
+        
+        return "%s\n\n" % "\n".join(lines)
+
+@app.route('/subscribe/<sub>')
+def subscribe(sub):
+    logger.debug("Subscribing: {}".format(sub))
+
+    if sub not in subscriptions:
+        subscriptions[sub] = []
+
+    def gen():
+        logger.debug("Making Generator...")
+
+        q = Queue()
+        subscriptions[sub].append(q)
+        try:
+            while True:
+                result = q.get()
+                logger.debug("Queue Get: {}".format(result))
+
+                ev = ServerSentEvent(str(result))
+                
+                logger.debug("Yielding: {}".format(ev.encode()))
+
+                yield ev.encode()
+        except GeneratorExit:
+            logger.debug("Removing Generator...")
+            subscriptions[sub].remove(q)
+
+    return Response(gen(), mimetype="text/event-stream")
+
+def publish(sub, msg):
+    def notify():
+        try:
+            for sid in subscriptions[sub][:]:
+                logger.debug("Publishing sub: {} msg: {}, sid: {}".format(sub, msg, sid))
+                sid.put(msg)
+        except Exception as e:
+            logger.debug("Exception during notify: {}".format(str(e)))
+
+    logger.debug("Publishing to sub: {} msg: {}".format(sub, msg))
+    if sub in subscriptions:
+        gevent.spawn(notify)
+
 @app.route('/private')
 @oidc.require_login
 def hello_me():
+
+    try:
+        sub = oidc.details()["sub"]
+
+        script = """
+    <script>
+        var eventSource = new EventSource("/subscribe/%s");
+
+        eventSource.onmessage = function(e) {
+            console.log(e.data);
+            window.location.href = "/logout";
+        };
+    </script>
+""" % sub
+
+    except Exception as e:
+        logger.debug("Error during script prepare: {}".format(str(e)))
+        script = ""
 
     try:
         token = '<h1>Token Details:</h1><br/><table border="1">'
@@ -517,7 +603,7 @@ def hello_me():
     except:
         data = 'No userdata available...'
 
-    return ('<br/>%s<br/>%s<br/><a href="/">Return</a>' % (token, data))
+    return ('{}<br/>{}<br/>{}<br/><a href="/">Return</a>'.format(script, token, data))
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
@@ -542,6 +628,8 @@ def logout():
 """
 
         logger.debug("Data received: {}".format(request.get_data().decode('utf-8')))
+
+        payload = {}
 
         try:
             logout_token = request.form.get('logout_token', None)
@@ -585,9 +673,9 @@ The RP's response SHOULD include Cache-Control directives keeping the response f
 - Cache-Control: no-cache, no-store
 - Pragma: no-cache
 """
+        if payload and "sub" in payload:
+            publish(payload["sub"], "Logout")
 
-        oidc.logout()
-        
         r = make_response('', 200)
         r.headers['Cache-Control'] = 'no-cache, no-store'
         r.headers['Pragma'] = 'no-cache'
@@ -604,5 +692,5 @@ if __name__ == "__main__":
         # Allow insecure oauth2 when debugging
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-    # Explicitly set `host=localhost` in order to get the correct redirect_uri.
-    app.run(host="0.0.0.0", port=PORT)
+    server = WSGIServer(("", 8000), app)
+    server.serve_forever()
