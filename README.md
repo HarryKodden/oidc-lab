@@ -1,8 +1,5 @@
 # Howto
 
-You can manage provider details via RESTful API interface.
-
-In the examples below, it is assumed you are running the application on your local machine, therefor **http://localhost:8000** is taken as the address of the OIDC Relying Party host address.
 
 This application is based on Flask-OIDC. In standard Flask-OIDC application the connection between OIDC-Client (RP) and OIDC-Server (OP) is hard-wired via compile time **client-secrets** configuration. 
 
@@ -14,6 +11,32 @@ Furthermore, the subclass is completely dynamic on retrieving provider configura
 Hope you enjoy.
 
 Feedback is wellcome.
+
+## Build
+
+If you have docker installed, you can just run:
+
+```
+docker build -t oidclab .
+```
+
+## Run application
+
+With docker you enter:
+
+```
+docker run -p 8000:8000 -d oidclab
+```
+
+Now open your browser on [http://localhost:8000](http://localhost:8000)
+
+## Configuration
+
+You can manage provider details via RESTful API interface.
+
+In the examples below, it is assumed you are running the application on your local machine, therefor http://localhost:8000 is taken as the address of the OIDC Relying Party host address.
+
+Commands below are to be initiated from a terminal session, you should have command **curl** available.
 
 ### Example 1. List current Providers
 
