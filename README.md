@@ -3,14 +3,14 @@
 
 This application is based on Flask-OIDC. In standard Flask-OIDC application the connection between OIDC-Client (RP) and OIDC-Server (OP) is hard-wired via compile time **client-secrets** configuration. 
 
-It this application, the connection between RP and OP is not hard-wired. It is fully adjustable during RunTime. The configuration can be adjusted via a REST Api calls, see some examples below.
+In this application, the connection between RP and OP is not hard-wired. It is fully adjustable dynamically at RunTime. The configuration can be adjusted via a REST Api calls, see some examples below.
 
 This dynamic behavior is achieved by subclassing the Flask-OIDC Class *OpenIDConnect*. The method *init_provider* is only called when a user has selected the provider to authenticate against.
 Furthermore, the subclass is completely dynamic on retrieving provider configuration via the standard **.../.well-known/openid-configuration** endpoints.
 
 Hope you enjoy.
 
-Feedback is wellcome.
+Feedback is appreciated.
 
 ## Build
 
