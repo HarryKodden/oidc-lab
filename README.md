@@ -1,3 +1,11 @@
+# Welcome
+
+![Cover](images/welcome.png#center)
+
+# Example
+
+![Cover](images/example.png#center)
+
 # Howto
 
 
