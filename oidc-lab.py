@@ -225,7 +225,7 @@ class MyOpenIDConnect(OpenIDConnect):
         # should ONLY be turned off for local debugging
         app.config.setdefault('OIDC_COOKIE_SECURE', True)
         app.config.setdefault('OIDC_VALID_ISSUERS',None)
-        app.config.setdefault('OIDC_CLOCK_SKEW', 60)  # 1 minute
+        app.config.setdefault('OIDC_CLOCK_SKEW', 6000)  # 1 minute
         app.config.setdefault('OIDC_REQUIRE_VERIFIED_EMAIL', False)
         app.config.setdefault('OIDC_OPENID_REALM', None)
         app.config.setdefault('OIDC_USER_INFO_ENABLED', True)

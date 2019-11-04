@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.7-stretch
 
 MAINTAINER harry.kodden@surfnet.nl
 
@@ -8,6 +8,9 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 ADD oidc-lab.py /usr/local/bin/
+
+RUN echo "Europe/Amsterdam " > /etc/timezone
+RUN dpkg-reconfigure -f noninteractive tzdata
 
 EXPOSE 8000
 
