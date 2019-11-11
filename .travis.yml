@@ -1,9 +1,18 @@
 language: python
 python:
-  - "3.6"
-cache: pip
+  - "3.7"
+
+services:
+  - docker
+
 install:
+  - docker build -t oidclab .
+  - docker run -d -p 8000:8000 --name oidclab oidclab
+
+before_script:
   - pip install -r requirements.txt
+
 script:
-  - python oidc-lab.py
+  - docker ps | grep -q oidclab
+# - python oidc-lab.py
   
