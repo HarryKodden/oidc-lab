@@ -52,7 +52,7 @@ Commands below are to be initiated from a terminal session, you should have comm
 curl http://localhost:8000/api/providers
 ```
 
-### Example 2. Add a provider that allows dynamic regfistration
+### Example 2. Add a provider that allows dynamic registration
 
 ```
 
