@@ -17,6 +17,8 @@ import urllib
 import functools
 import requests
 import jwt
+import ssl
+import base64
 
 from flask import Flask, g, redirect, current_app, jsonify, request, render_template, Response
 from flask.helpers import make_response
@@ -207,7 +209,7 @@ class MyOpenIDConnect(OpenIDConnect):
             self.init_app(app)
 
         if provider:
-            self.init_provider(app, provider)
+            self.init_provider(provider)
 
     def init_app(self, app):
         """
@@ -288,6 +290,11 @@ class MyOpenIDConnect(OpenIDConnect):
 
         assert isinstance(self.flow, OAuth2WebServerFlow)
 
+        if current_app.config['OIDC_INTROSPECTION_AUTH_METHOD'] == 'client_secret_basic':
+            basic_auth_string = '%s:%s' % (self.client_secrets['client_id'], self.client_secrets['client_secret'])
+            basic_auth_bytes = bytearray(basic_auth_string, 'utf-8')
+            self.flow.authorization_header = 'Basic %s' % base64.b64encode(basic_auth_bytes).decode('utf-8')
+
         current_app.config['OIDC_VALID_ISSUERS'] = self.client_secrets.get('issuer')
 
     def logout(self):
@@ -333,10 +340,10 @@ class MyOpenIDConnect(OpenIDConnect):
             url += ".well-known/openid-configuration"
 
             logger.debug("Loading: {}".format(url))
-
-            provider_info = json.load(
-                urllib.request.urlopen(url)
-            )
+            context = ssl._create_unverified_context()
+            response = urllib.request.urlopen(url, context=context)
+            
+            provider_info = json.load(response)
 
         except Exception as e:
             raise Exception("Can not obtain well known information: {}".format(str(e)))
@@ -344,6 +351,10 @@ class MyOpenIDConnect(OpenIDConnect):
         for path in ['issuer', 'registration_endpoint', 'authorization_endpoint', 'token_endpoint', 'userinfo_endpoint']:
             if path in provider_info and provider_info[path].startswith('/'):
                 provider_info[path] = "{}{}".format(provider.get('base_url'), provider_info[path])
+
+        for method in provider_info.get('token_endpoint_auth_methods_supported',[]):
+            current_app.config['OIDC_INTROSPECTION_AUTH_METHOD'] = method
+            break # Just take first...
 
         registration = provider.get('registration', None)
 
@@ -379,6 +390,8 @@ class MyOpenIDConnect(OpenIDConnect):
                )
             except:
                jwks_keys = None
+
+            current_app.config['OIDC_SCOPES'] = provider_info.get('scopes_supported', REQUESTED_SCOPES)
 
             return {
                 'web' : {
