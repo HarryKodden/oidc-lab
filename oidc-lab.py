@@ -13,14 +13,14 @@ __status__      = "Development"
 import os
 import json
 import logging
+from typing import Any
 import urllib
-import functools
 import requests
 import jwt
 import ssl
 import base64
 
-from flask import Flask, g, redirect, current_app, jsonify, request, render_template, Response
+from flask import Flask, g, redirect, current_app, request, render_template, Response
 from flask.helpers import make_response
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
@@ -593,13 +593,15 @@ def hello_me():
         logger.debug("TOKEN: {}".format(t))
 
         for k,v in t.items():
+            token += '<tr><td>{}</td><td><pre>{}</pre></td></tr>'.format(k, v)
+
             try:
-                v = jwt.decode(v, verify=False)
+                v = jwt.decode(v, options={"verify_signature": False})
                 v = json.dumps(v, indent=4, sort_keys=True)
+                token += '<tr><td>{} (decoded)</td><td><pre>{}</pre></td></tr>'.format(k, v)
             except:
                 pass
 
-            token += '<tr><td>{}</td><td><pre>{}</pre></td></tr>'.format(k, v)
         token += '</table>'
     except Exception as e:
         token = 'No token details available...{}'.format(str(e))
