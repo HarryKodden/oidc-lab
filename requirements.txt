@@ -6,6 +6,6 @@ gevent
 future
 flask-cache
 flask-login
-flask-oidc
+flask-oidc>=1.4.0
 flask-restful
-pyjwt
+pyjwt>=2.1.0

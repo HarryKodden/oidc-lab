@@ -20,17 +20,24 @@ import jwt
 import ssl
 import base64
 
-from flask import Flask, g, redirect, current_app, request, render_template, Response
+from flask import Flask, g, redirect, current_app, request, render_template, Response, session
 from flask.helpers import make_response
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
 from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow
+from base64 import urlsafe_b64encode
+from six.moves.urllib.parse import urlencode
 
 import gevent
 from gevent.pywsgi import WSGIServer
 from gevent.queue import Queue
 
-logging.basicConfig(level=logging.DEBUG)
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG').upper()
+
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +109,7 @@ class _Registration(dict):
 
         super().__setitem__(key, value)
 
-ALLOWED_PROVIDER_ATTRIBUTES = ['base_url', 'description', 'client_name', 'registration']
+ALLOWED_PROVIDER_ATTRIBUTES = ['base_url', 'description', 'client_name', 'registration', 'scopes']
 
 class _Provider(dict):
 
@@ -152,8 +159,8 @@ def get_dict(value):
     elif isinstance(value, list):
         result = []
 
-        for i in value.keys():
-            result.append(get_dict(value[i]))
+        for i in value:
+            result.append(i)
 
         return result
     else:
@@ -233,6 +240,7 @@ class MyOpenIDConnect(OpenIDConnect):
         app.config.setdefault('OIDC_USER_INFO_ENABLED', True)
         app.config.setdefault('OIDC_CALLBACK_ROUTE', CALLBACK)
         app.config.setdefault('OVERWRITE_REDIRECT_URI', REDIRECT_URL)
+        app.config.setdefault("OIDC_EXTRA_REQUEST_AUTH_PARAMS", {})
         # Configuration for resource servers
         app.config.setdefault('OIDC_RESOURCE_SERVER_ONLY', False)
         app.config.setdefault('OIDC_RESOURCE_CHECK_AUD', False)
@@ -267,6 +275,59 @@ class MyOpenIDConnect(OpenIDConnect):
 
         if self.client_secrets:
             self.authenticate_or_redirect()
+
+    def redirect_to_auth_server(self, destination=None, customstate=None):
+        """
+        Set a CSRF token in the session, and redirect to the IdP.
+
+        :param destination: The page that the user was going to,
+            before we noticed they weren't logged in.
+        :type destination: Url to return the client to if a custom handler is
+            not used. Not available with custom callback.
+        :param customstate: The custom data passed via the ODIC state.
+            Note that this only works with a custom_callback, and this will
+            ignore destination.
+        :type customstate: Anything that can be serialized
+        :returns: A redirect response to start the login process.
+        :rtype: Flask Response
+
+        .. deprecated:: 1.0
+           Use :func:`require_login` instead.
+        """
+        if not self._custom_callback and customstate:
+            raise ValueError('Custom State is only avilable with a custom '
+                             'handler')
+        if 'oidc_csrf_token' not in session:
+            csrf_token = urlsafe_b64encode(os.urandom(24)).decode('utf-8')
+            session['oidc_csrf_token'] = csrf_token
+        state = {
+            'csrf_token': session['oidc_csrf_token'],
+        }
+        statefield = 'destination'
+        statevalue = destination
+        if customstate is not None:
+            statefield = 'custom'
+            statevalue = customstate
+        state[statefield] = self.extra_data_serializer.dumps(
+            statevalue).decode('utf-8')
+
+        extra_params = {
+            'state': urlsafe_b64encode(json.dumps(state).encode('utf-8')),
+        }
+        extra_params.update(current_app.config['OIDC_EXTRA_REQUEST_AUTH_PARAMS'])
+        if current_app.config['OIDC_GOOGLE_APPS_DOMAIN']:
+            extra_params['hd'] = current_app.config['OIDC_GOOGLE_APPS_DOMAIN']
+        if current_app.config['OIDC_OPENID_REALM']:
+            extra_params['openid.realm'] = current_app.config[
+                'OIDC_OPENID_REALM']
+
+        flow = self._flow_for_request()
+        auth_url = '{url}&{extra_params}'.format(
+            url=flow.step1_get_authorize_url(),
+            extra_params=urlencode(extra_params))
+        # if the user has an ID token, it's invalid, or we wouldn't be here
+        self._set_cookie_id_token(None)
+        return redirect(auth_url)
 
     def init_provider(self, provider):
         """
@@ -391,7 +452,10 @@ class MyOpenIDConnect(OpenIDConnect):
             except:
                jwks_keys = None
 
-            current_app.config['OIDC_SCOPES'] = provider_info.get('scopes_supported', REQUESTED_SCOPES)
+            current_app.config['OIDC_SCOPES'] = provider.get('scopes', provider_info.get('scopes_supported', REQUESTED_SCOPES))
+            
+            if 'offline_access' in current_app.config['OIDC_SCOPES']:
+                current_app.config['OIDC_EXTRA_REQUEST_AUTH_PARAMS'].update({'prompt' : 'consent'})
 
             return {
                 'web' : {
@@ -536,7 +600,7 @@ def subscribe(sub):
         subscriptions[sub].append(q)
         try:
             while True:
-                result = q.get()
+                result = q.get(block=True)
                 logger.debug("Queue Get: {}".format(result))
 
                 ev = ServerSentEvent(str(result))
@@ -619,6 +683,11 @@ def hello_me():
         data = 'No userdata available...'
 
     return ('{}<br/>{}<br/>{}<br/><a href="/">Return</a>'.format(script, token, data))
+
+@app.route('/test_logout/<sub>', methods=['GET'])
+def test_logout(sub):
+    publish(sub, "Logout")
+    return "OK"
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
