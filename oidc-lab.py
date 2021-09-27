@@ -13,7 +13,6 @@ __status__      = "Development"
 import os
 import json
 import logging
-from typing import Any
 import urllib
 import requests
 import jwt
@@ -24,8 +23,9 @@ from flask import Flask, g, redirect, current_app, request, render_template, Res
 from flask.helpers import make_response
 from flask_oidc import OpenIDConnect, DummySecretsCache
 from flask_restful import abort, Api, Resource
-from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow
+from oauth2client.client import flow_from_clientsecrets, OAuth2WebServerFlow, AccessTokenRefreshError, OAuth2Credentials
 from base64 import urlsafe_b64encode
+import httplib2
 from six.moves.urllib.parse import urlencode
 
 import gevent
@@ -270,6 +270,27 @@ class MyOpenIDConnect(OpenIDConnect):
         except KeyError:
             pass
 
+    def refresh(self):
+
+        id_token = self._get_cookie_id_token()
+
+        try:
+            credentials = OAuth2Credentials.from_json(
+                self.credentials_store[id_token['sub']])
+        except KeyError:
+            logger.debug("Expired ID token, credentials missing",
+                            exc_info=True)
+
+        # refresh and store credentials
+        try:
+            credentials.refresh(httplib2.Http())
+            if credentials.id_token:
+                id_token = credentials.id_token
+                self.credentials_store[id_token['sub']] = credentials.to_json()
+                self._set_cookie_id_token(id_token)
+        except AccessTokenRefreshError:
+            logger.debug("Failed to refresh !")
+
     def _before_request(self):
         g.oidc_id_token = None
 
@@ -379,6 +400,7 @@ class MyOpenIDConnect(OpenIDConnect):
         return super()._is_id_token_valid(id_token)
 
     def token(self):
+        
         try:
             return self.credentials_store[g.oidc_id_token['sub']]
         except KeyError:
@@ -627,6 +649,16 @@ def publish(sub, msg):
     if sub in subscriptions:
         gevent.spawn(notify)
 
+@app.route('/refresh')
+@oidc.require_login
+def refresh():
+    try:
+        oidc.refresh()
+    except Exception as e:
+        logger.debug("Error during refresh: {}".format(str(e)))
+    
+    return hello_me()
+
 @app.route('/private')
 @oidc.require_login
 def hello_me():
@@ -649,6 +681,8 @@ def hello_me():
         logger.debug("Error during script prepare: {}".format(str(e)))
         script = ""
 
+    refresh = ''
+    
     try:
         token = '<h1>Token Details:</h1><br/><table border="1">'
         token += '<tr><th>Attribute</th><th>Value</th></tr>'
@@ -658,6 +692,9 @@ def hello_me():
 
         for k,v in t.items():
             token += '<tr><td>{}</td><td><pre>{}</pre></td></tr>'.format(k, v)
+
+            if k == 'refresh_token':
+                refresh = '<br/><a href="/refresh">Refresh !</a><br/>'
 
             try:
                 v = jwt.decode(v, options={"verify_signature": False})
@@ -682,7 +719,7 @@ def hello_me():
     except:
         data = 'No userdata available...'
 
-    return ('{}<br/>{}<br/>{}<br/><a href="/">Return</a>'.format(script, token, data))
+    return ('{}<br/>{}<br/>{}<br/>{}<a href="/">Return</a>'.format(script, token, data, refresh))
 
 @app.route('/test_logout/<sub>', methods=['GET'])
 def test_logout(sub):
