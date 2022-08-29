@@ -9,3 +9,4 @@ flask-login
 flask-oidc>=1.4.0
 flask-restful
 pyjwt>=2.1.0
+itsdangerous==2.0.1
