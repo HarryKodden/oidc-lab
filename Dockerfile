@@ -1,6 +1,4 @@
-FROM python:3.7-stretch
-
-MAINTAINER harry.kodden@surfnet.nl
+FROM python:3.9
 
 RUN apt-get update
 

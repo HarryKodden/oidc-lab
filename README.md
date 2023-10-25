@@ -8,12 +8,13 @@
 
 # Howto
 
+This application is based on Flask-OIDC. In standard Flask-OIDC application the connection between OIDC-Client (RP) and OIDC-Server (OP) is hard-wired via compile time **client-secrets** configuration.
 
-This application is based on Flask-OIDC. In standard Flask-OIDC application the connection between OIDC-Client (RP) and OIDC-Server (OP) is hard-wired via compile time **client-secrets** configuration. 
+PS. Since Flask-OIDC at https://github.com/puiterwijk/flask-oidc is no longer actively maintained, parts of that repository have been used in this repository.
 
 In this application, the connection between RP and OP is not hard-wired. It is fully adjustable dynamically at RunTime. The configuration can be adjusted via a REST Api calls, see some examples below.
 
-This dynamic behavior is achieved by subclassing the Flask-OIDC Class *OpenIDConnect*. The method *init_provider* is only called when a user has selected the provider to authenticate against.
+This dynamic behavior is achieved by subclassing the Flask-OIDC Class _OpenIDConnect_. The method _init_provider_ is only called when a user has selected the provider to authenticate against.
 Furthermore, the subclass is completely dynamic on retrieving provider configuration via the standard **.../.well-known/openid-configuration** endpoints.
 
 Hope you enjoy.
@@ -62,7 +63,6 @@ curl -X PUT \
   -d '{ "base_url": "https://<some provider>/", "description": "My Provider", "client_name": "testing123" }'
 ```
 
-
 Above provider will use 'dynamic client registration', off course this will only work if your provider allows you to do so.
 
 ### Example 3. Add a provider with client credentials
@@ -75,6 +75,5 @@ curl -X PUT \
   -H 'Content-Type: application/json' \
   -d '{ "base_url": "https://<some provider>/", "registration": { "client_id": "YOUR CLIENT_ID", "client_secret": "YOUR CLIENT_SECRET" }  }'
 ```
-
 
 **NOTE:** Please make sure your have registered **http://localhost:8000/oidc_callback** as a valid callback uri with your provider !
